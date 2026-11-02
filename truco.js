@@ -1,54 +1,41 @@
-/* Arena das Cartas — Mesa imersiva Truco 1x1 */
+/* Arena das Cartas — Truco 1x1 v10: ações validadas pelo Supabase */
 'use strict';
 (()=>{
- const BASE='https://vxqbfkjcmzbrhadkoyqx.supabase.co';
- const KEY='sb_publishable_rS9ZWWdxEN9bOKHiVjnryg_835_hS6a';
+ const BASE='https://vxqbfkjcmzbrhadkoyqx.supabase.co',KEY='sb_publishable_rS9ZWWdxEN9bOKHiVjnryg_835_hS6a';
  const el=document.createElement('section');el.id='trucoGame';
  el.innerHTML=`<div class="table-shell">
- <div class="table-top"><button id="tgExit" aria-label="Voltar às mesas">‹</button><div class="table-brand">♠ ARENA <b>DAS CARTAS</b><small>TRUCO ONLINE</small></div><button id="tgSound" aria-label="Ligar ou desligar efeitos sonoros">♫</button></div>
- <div class="table-score"><div><small>VOCÊ</small><strong id="tgMine">0</strong></div><div class="table-score-middle"><span id="tgRoom">MESA</span><b>×</b><span id="tgMeta">MÃO 1 · VAZA 1</span></div><div><small>ADVERSÁRIO</small><strong id="tgOther">0</strong></div></div>
+ <div class="table-top"><button id="tgExit">‹ Voltar</button><div class="table-brand">♠ ARENA <b>DAS CARTAS</b><small id="tgVariant">TRUCO ONLINE</small></div><button id="tgSound">🔊</button></div>
+ <div class="table-score"><div><small>VOCÊ</small><strong id="tgMine">0</strong><div class="trick-dots" id="tgMyDots"></div></div><div class="table-score-middle"><span id="tgRoom">MESA</span><b>×</b><span id="tgMeta">MÃO 1 · VAZA 1</span><span id="tgValue">VALE 1</span></div><div><small>ADVERSÁRIO</small><strong id="tgOther">0</strong><div class="trick-dots" id="tgOtherDots"></div></div></div>
  <div class="table-opponent"><div class="avatar">♟</div><div class="opponent-name">ADVERSÁRIO <small id="tgOtherStatus">Aguardando</small></div><div class="backs"><span>♠</span><span>♠</span><span>♠</span></div></div>
- <div class="felt"><div class="felt-glow"></div><div class="felt-logo">ARENA <span>♠</span> CARTAS</div><div id="tgBoard" class="table-cards"><span class="table-empty">Aguardando jogada</span></div></div>
- <div class="table-bottom"><div id="tgTurn" class="turn-pill">Preparando partida...</div><div id="tgHand" class="hand-fan"></div><div id="tgNotice" class="table-notice"></div><div class="table-controls"><button id="tgTruco" disabled>🔥 TRUCO!</button><button id="tgRefresh">↻ Atualizar</button></div></div>
- <div id="tgMessage" class="table-message">Entre em uma mesa 1×1 completa para jogar.</div>
- </div>`;
- document.body.append(el);
- const $=s=>document.querySelector(s);
- let loading=false,lastError='',lastTurn=null,lastNotice='',activeRoom=null,firstView=true;
+ <div class="felt"><div class="felt-glow"></div><div class="felt-logo">ARENA <span>♠</span> CARTAS</div><div id="tgVira" class="tg-vira"></div><div id="tgBoard" class="table-cards"></div></div>
+ <div class="table-bottom"><div id="tgTurn" class="turn-pill">Preparando...</div><div id="tgHand" class="hand-fan"></div><div id="tgNotice" class="table-notice"></div><div class="table-controls"><button id="tgTruco">🔥 TRUCO!</button><button id="tgAccept" hidden>✔ ACEITAR</button><button id="tgRaise" hidden>⬆ AUMENTAR</button><button id="tgRun" hidden>🏳 CORRER</button><button id="tgRefresh">↻ Atualizar</button></div></div>
+ <div id="tgMessage" class="table-message">Aguardando partida...</div>
+ <div id="tgVariantPick" class="variant-picker" hidden><h3>Escolha a modalidade</h3><p>O primeiro jogador que iniciar a partida define as regras.</p><button data-variant="paulista">♠ Truco Paulista</button><button data-variant="mineiro">♣ Truco Mineiro</button></div>
+ </div>`;document.body.append(el);
+ const $=s=>document.querySelector(s);let busy=false,active=null,previous=null,notice='',started=false,leaving=false;
  function session(){try{return JSON.parse(localStorage.getItem('arena_session')||'null')}catch{return null}}
- async function call(name,body){const s=session();if(!s?.access_token)throw Error('Faça login para jogar.');const res=await fetch(BASE+'/rest/v1/rpc/'+name,{method:'POST',headers:{apikey:KEY,Authorization:'Bearer '+s.access_token,'Content-Type':'application/json'},body:JSON.stringify(body)});const raw=await res.text();let data;try{data=JSON.parse(raw)}catch{data=raw}if(!res.ok)throw Error(data?.message||data?.error||'Erro '+res.status);return data}
- const suit={S:'♠',H:'♥',D:'♦',C:'♣'};
- function label(c){if(!c)return '🂠';const x=c.slice(-1);return c.slice(0,-1)+(suit[x]||x)}
- function red(c){return /[HD]$/.test(c)}
- function room(){const list=typeof mesasAtuais!=='undefined'?mesasAtuais:[];const selected=typeof mesaSelecionada!=='undefined'?mesaSelecionada:null;const m=list.find(r=>r.id===selected);if(m?.game==='truco'&&m.max_players===2&&m.participating)return m;return list.find(r=>r.game==='truco'&&r.max_players===2&&r.participating&&['ready','playing'].includes(r.status))||null}
- function makeCard(code,clickable){const b=document.createElement(clickable?'button':'div');b.className='premium-card'+(red(code)?' red':'');const r=code.slice(0,-1),s=suit[code.slice(-1)]||'';b.innerHTML=`<span class="card-corner">${r}<small>${s}</small></span><span class="card-center">${s}</span><span class="card-corner bottom">${r}<small>${s}</small></span>`;return b}
- function show(data,m){
-  $('#tgMessage').hidden=true;$('#tgRoom').textContent=m.room_code;$('#tgMine').textContent=data.scores[data.seat];$('#tgOther').textContent=data.scores[1-data.seat];
-  $('#tgMeta').textContent='MÃO '+data.hand_number+' · VAZA '+Math.min(3,data.trick_number+1);
-  $('#tgTurn').textContent=data.finished?'🏆 PARTIDA ENCERRADA':data.your_turn?'🟢 SUA VEZ DE JOGAR':'⏳ VEZ DO ADVERSÁRIO';
-  $('#tgTurn').classList.toggle('your-turn',!!data.your_turn);
-  $('#tgOtherStatus').textContent=data.your_turn?'Esperando você':'Jogando agora';
-  const board=$('#tgBoard');board.replaceChildren();
-  if(!(data.table_cards||[]).length){const p=document.createElement('span');p.className='table-empty';p.textContent='Centro da mesa';board.append(p)}
-  else for(const x of data.table_cards){const box=document.createElement('div');box.className='played-card';const tag=document.createElement('small');tag.textContent=x.player===data.seat?'VOCÊ':'ADVERSÁRIO';box.append(makeCard(x.card,false),tag);board.append(box)}
-  const hand=$('#tgHand');hand.replaceChildren();
-  for(const c of data.hand||[]){const b=makeCard(c,true);b.disabled=!data.your_turn||data.finished;b.setAttribute('aria-label','Jogar '+label(c));b.onclick=async()=>{b.disabled=true;window.ArenaSound?.play('card');try{const next=await call('ac_truco_play',{p_room_id:m.id,p_card:c});show(next,m)}catch(e){window.ArenaSound?.play('error');$('#tgNotice').textContent='Erro na jogada: '+e.message;await update(true)}};hand.append(b)}
-  const notice=data.notice||'';$('#tgNotice').textContent=notice;
-  if(!firstView&&lastTurn===false&&data.your_turn)window.ArenaSound?.play('turn');
-  if(!firstView&&notice!==lastNotice&&notice.includes('venceu'))window.ArenaSound?.play('win');
-  lastTurn=data.your_turn;lastNotice=notice;firstView=false;
+ async function rpc(name,body){const s=session();if(!s?.access_token)throw Error('Faça login');const res=await fetch(BASE+'/rest/v1/rpc/'+name,{method:'POST',headers:{apikey:KEY,Authorization:'Bearer '+s.access_token,'Content-Type':'application/json'},body:JSON.stringify(body)});let x;try{x=await res.json()}catch{x={}}if(!res.ok)throw Error(x?.message||'Erro HTTP '+res.status);return x}
+ function room(){const list=typeof mesasAtuais!=='undefined'?mesasAtuais:[],selected=typeof mesaSelecionada!=='undefined'?mesaSelecionada:null;const m=list.find(r=>r.id===selected);if(m?.game==='truco'&&m.max_players===2&&m.participating)return m;return list.find(r=>r.game==='truco'&&r.max_players===2&&r.participating&&['ready','playing'].includes(r.status))||null}
+ const suits={S:'♠',H:'♥',D:'♦',C:'♣'};
+ function card(c,button){const e=document.createElement(button?'button':'div');e.className='premium-card'+(/[HD]$/.test(c)?' red':'');const r=c.slice(0,-1),s=suits[c.slice(-1)]||'';e.innerHTML=`<span class="card-corner">${r}<small>${s}</small></span><span class="card-center">${s}</span><span class="card-corner bottom">${r}<small>${s}</small></span>`;return e}
+ function dots(id,winners,seat){const parent=$(id);parent.replaceChildren();for(let i=0;i<3;i++){const d=document.createElement('span');d.className='trick-dot';if(i<winners.length){d.classList.add(winners[i]===seat?'won':winners[i]===-1?'tied':'lost');d.title=winners[i]===-1?'Empate':winners[i]===seat?'Vaza vencida':'Vaza perdida'}parent.append(d)}}
+ function show(d,m){$('#tgMessage').hidden=true;$('#tgVariantPick').hidden=true;$('#tgRoom').textContent=m.room_code;$('#tgVariant').textContent=d.variant==='mineiro'?'TRUCO MINEIRO':'TRUCO PAULISTA';$('#tgMine').textContent=d.scores[d.seat];$('#tgOther').textContent=d.scores[1-d.seat];$('#tgMeta').textContent=`MÃO ${d.hand_number} · VAZA ${Math.min(3,d.trick_number+1)}`;$('#tgValue').textContent=`VALE ${d.hand_value}`;
+ const w=d.trick_winners||[];dots('#tgMyDots',w,d.seat);dots('#tgOtherDots',w,1-d.seat);
+ $('#tgVira').replaceChildren();if(d.variant==='paulista'&&d.vira){const p=document.createElement('div');p.className='vira-card';p.append(card(d.vira,false));const t=document.createElement('small');t.textContent='VIRA';p.append(t);$('#tgVira').append(p)}
+ const pending=d.pending_from!==null&&d.pending_from!==undefined;const incoming=pending&&d.pending_from!==d.seat;
+ $('#tgTurn').textContent=d.finished?'🏆 PARTIDA ENCERRADA':incoming?'🔥 RESPONDA AO TRUCO':pending?'⏳ AGUARDANDO RESPOSTA':d.your_turn?'🟢 SUA VEZ DE JOGAR':'⏳ VEZ DO ADVERSÁRIO';$('#tgTurn').classList.toggle('your-turn',d.your_turn);$('#tgOtherStatus').textContent=incoming?'Pediu Truco':d.your_turn?'Esperando você':'Jogando';
+ const board=$('#tgBoard');board.replaceChildren();for(const x of d.table_cards||[]){const p=document.createElement('div');p.className='played-card';p.append(card(x.card,false));const t=document.createElement('small');t.textContent=x.player===d.seat?'VOCÊ':'ADVERSÁRIO';p.append(t);board.append(p)}if(!(d.table_cards||[]).length)board.textContent='Centro da mesa';
+ const hand=$('#tgHand');hand.replaceChildren();for(const c of d.hand||[]){const b=card(c,true);b.disabled=!d.your_turn||d.finished;b.setAttribute('aria-label','Jogar '+c);b.onclick=()=>act('ac_truco_play',{p_room_id:m.id,p_card:c},'card');hand.append(b)}
+ $('#tgTruco').hidden=pending||d.finished||!d.can_raise;$('#tgAccept').hidden=!incoming;$('#tgRaise').hidden=!incoming||d.hand_value>=12;$('#tgRun').hidden=!incoming;
+ $('#tgTruco').onclick=()=>act('ac_truco_action',{p_room_id:m.id,p_action:'truco'},'truco');$('#tgAccept').onclick=()=>act('ac_truco_action',{p_room_id:m.id,p_action:'aceitar'},'tap');$('#tgRaise').onclick=()=>act('ac_truco_action',{p_room_id:m.id,p_action:'aumentar'},'truco');$('#tgRun').onclick=()=>act('ac_truco_action',{p_room_id:m.id,p_action:'correr'},'tap');
+ $('#tgNotice').textContent=d.notice||'';
+ if(previous&&d.hand_number>previous.hand_number)window.ArenaSound?.play('deal');if(previous&&w.length>previous.trick_winners?.length)window.ArenaSound?.play('win');if(previous&&d.your_turn&&!previous.your_turn)window.ArenaSound?.play('turn');if(previous&&incoming&&! (previous.pending_from!==null&&previous.pending_from!==undefined&&previous.pending_from!==previous.seat))window.ArenaSound?.play('truco');previous=d;
  }
- async function update(silent=false){if(loading)return;loading=true;try{
-  const m=room();if(!m){activeRoom=null;$('#tgMessage').hidden=false;$('#tgMessage').textContent='Entre em uma mesa de Truco 1×1 completa para jogar.';return}
-  if(activeRoom!==m.id){activeRoom=m.id;firstView=true;lastTurn=null}
-  if(m.status==='waiting'){$('#tgMessage').hidden=false;$('#tgMessage').textContent='Aguardando adversário na '+m.room_code;return}
-  let state;try{state=await call('ac_truco_state',{p_room_id:m.id})}catch(e){if(m.status==='ready')state=await call('ac_truco_start',{p_room_id:m.id});else throw e}show(state,m);
- }catch(e){if(!silent||lastError!==e.message){$('#tgMessage').hidden=false;$('#tgMessage').textContent='Truco: '+e.message}lastError=e.message}finally{loading=false}}
- $('#tgExit').onclick=()=>window.ArenaNav?.go('lobby');
- $('#tgRefresh').onclick=()=>update();
- $('#tgSound').onclick=()=>{const a=window.ArenaSound;if(!a)return;a.setEffects(!a.settings.effects);$('#tgSound').textContent=a.settings.effects?'♫':'♪̸'};
- $('#tgTruco').onclick=()=>{}; // Pedido de Truco será liberado após regras implementadas no servidor.
- window.addEventListener('arena-game-open',()=>update());
- setInterval(()=>{if(!document.hidden&&session()?.access_token&&document.body.dataset.screen==='game')update(true)},3000);
- setTimeout(()=>update(),1200);
+ async function act(fn,args,sound){if(busy)return;busy=true;try{window.ArenaSound?.play(sound);const m=room();const d=await rpc(fn,args);show(d,m)}catch(e){$('#tgNotice').textContent='Erro: '+e.message;window.ArenaSound?.play('error')}finally{busy=false}}
+ async function update(){if(busy||document.body.dataset.screen!=='game')return;busy=true;try{const m=room();if(!m){$('#tgMessage').hidden=false;$('#tgMessage').textContent='Entre numa mesa de Truco 1×1';return}if(active!==m.id){active=m.id;previous=null;started=false}if(m.status==='waiting'){$('#tgMessage').hidden=false;$('#tgMessage').textContent='Aguardando adversário';return}
+ let d;try{d=await rpc('ac_truco_state',{p_room_id:m.id})}catch(e){if(m.status!=='ready'||!e.message.includes('ainda não iniciada'))throw e;$('#tgMessage').hidden=true;$('#tgVariantPick').hidden=false;return}show(d,m);
+ }catch(e){$('#tgMessage').hidden=false;$('#tgMessage').textContent='Erro: '+e.message}finally{busy=false}}
+ $('#tgVariantPick').querySelectorAll('[data-variant]').forEach(b=>b.onclick=async()=>{const m=room();if(!m)return;await act('ac_truco_start',{p_room_id:m.id,p_variant:b.dataset.variant},'deal');$('#tgVariantPick').hidden=true});
+ $('#tgExit').onclick=()=>window.ArenaExit?.ask?window.ArenaExit.ask():window.ArenaNav?.go('lobby');$('#tgRefresh').onclick=update;$('#tgSound').onclick=()=>{window.ArenaSound?.audio?.();window.ArenaSound?.play('deal');document.querySelector('#soundOpen')?.click()};
+ window.addEventListener('arena-game-open',update);setInterval(()=>{if(!document.hidden&&session()?.access_token)update()},2500);setTimeout(update,1200);
 })();

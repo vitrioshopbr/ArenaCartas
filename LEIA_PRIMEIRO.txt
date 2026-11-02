@@ -1,16 +1,29 @@
-ARENA DAS CARTAS — PACOTE 09 — MUSICA DE CASSINO + EFEITOS
+ARENA DAS CARTAS — PACOTE 10 — TESTE INTEGRADO TRUCO 1x1
 
-No GitHub, SUBSTITUA index.html, app.js, sound.js, effects-ui.js e sw.js.
-Os outros arquivos do Pacote 07 continuam iguais.
-Nao precisa executar SQL.
+INSTALAÇÃO NO ANDROID
+1. No Supabase > SQL Editor, execute 01_ATUALIZACAO_SUPABASE.sql.
+2. No GitHub, substitua index.html, style.css, app.js, navigation.js,
+   truco.js, sound.js, effects-ui.js e sw.js.
+3. NÃO exclua nem substitua online.js, icon.svg e manifest.webmanifest.
+4. Atualize o Chrome e abra https://vitrioshopbr.github.io/ArenaCartas/?v=10
+5. Para ouvir a trilha: toque em Música e sons > Ativar áudio e tocar música.
+6. Para testar Truco, crie uma NOVA mesa 1x1, entre com duas contas,
+   e escolha Paulista ou Mineiro quando a mesa ficar completa.
 
-Abra o aplicativo e toque em "Musica e sons" -> "Ativar audio e tocar musica".
-A musica lounge instrumental e ORIGINAL, gerada no navegador, sem baixar MP3.
-Use os controles para regular musica e efeitos separadamente.
+ENTREGUE NESTE PACOTE:
+- 40 cartas, vira no Paulista, manilhas fixas no Mineiro, hierarquia de força;
+- 3 bolinhas por jogador, empate amarelo, 2 vazas vencidas encerram a mão;
+- Truco/Aceitar/Aumentar/Correr com RPCs e bloqueio de ações inválidas;
+- confirmação de saída, música instrumental sintetizada e controles de áudio;
+- cache v10 com busca prioritária pela rede.
 
-IMPORTANTE: o navegador exige toque do usuario para liberar som.
-Se nao ouvir: aumente o volume de MIDIA do celular, tire do silencioso
-e confira se o site nao esta com som bloqueado.
+LIMITAÇÕES REAIS — NÃO CONSIDERAR VERSÃO FINAL:
+- Ainda NÃO implementa mão de onze/mão de dez e regras especiais de disputa.
+- Truco 2x2 e bots NÃO implementados.
+- Não foi possível executar testes reais no seu Supabase ou em dois celulares.
+- Partidas iniciadas em versões antigas preservam o estado anterior;
+  crie mesas novas para testar as novas regras.
+- A modalidade é escolhida pelo primeiro participante que iniciar a mesa.
+- A trilha é gerada pelo navegador, não é gravação de banda/orquestra.
 
-Este pacote NAO implementa as regras de Truco da Copag, os botoes
-Truco/Correr ou o placar das vazas; isso requer atualizacao do motor SQL.
+Se o SQL retornar erro, não prossiga com a instalação e envie o print.

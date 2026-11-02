@@ -37,8 +37,8 @@
  const confirm=document.createElement('div');confirm.id='arenaExitConfirm';
  confirm.innerHTML=`<div class="sound-box" role="dialog" aria-modal="true">
  <h2>⚠️ Abandonar partida?</h2>
- <p>Se sair agora, você deixará de acompanhar esta mesa. A saída não cancela automaticamente a partida no servidor.</p>
- <div class="sound-grid"><button id="exitStay">Continuar jogando</button><button id="exitLeave">Sair da tela</button></div>
+ <p>Se sair agora, você deixará de acompanhar esta mesa. Você sairá desta mesa no servidor.</p>
+ <div class="sound-grid"><button id="exitStay">Continuar jogando</button><button id="exitLeave">Abandonar partida</button></div>
  </div>`;
  document.body.append(confirm);
  function open(){
@@ -58,9 +58,17 @@
  let pending=false;
  function askExit(){pending=true;confirm.classList.add('open')}
  document.querySelector('#exitStay').onclick=()=>{pending=false;confirm.classList.remove('open')};
- document.querySelector('#exitLeave').onclick=()=>{
-  pending=false;confirm.classList.remove('open');
-  window.ArenaNav?.go('lobby');
+ document.querySelector('#exitLeave').onclick=async()=>{
+  const btn=document.querySelector('#exitLeave');btn.disabled=true;btn.textContent='Saindo...';
+  try{
+   if(typeof mesaSelecionada!=='undefined'&&mesaSelecionada&&window.ArenaOnline?.sairMesa){
+    await window.ArenaOnline.sairMesa(mesaSelecionada);
+    mesaSelecionada=null;
+    if(typeof carregarMesas==='function')await carregarMesas();
+   }
+   pending=false;confirm.classList.remove('open');window.ArenaNav?.go('lobby');
+  }catch(e){alert('Não foi possível sair da mesa: '+e.message)}
+  finally{btn.disabled=false;btn.textContent='Abandonar partida'}
  };
  // intercept UI back buttons before their existing onclick handlers
  document.addEventListener('click',e=>{
