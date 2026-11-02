@@ -1,4 +1,4 @@
-const CACHE='arena-cartas-v8';
+const CACHE='arena-cartas-v9';
 const ASSETS=['./','./index.html','./style.css','./app.js','./online.js','./navigation.js','./truco.js','./sound.js','./effects-ui.js','./manifest.webmanifest'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>Promise.allSettled(ASSETS.map(a=>c.add(a)))));self.skipWaiting()});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim()});

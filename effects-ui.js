@@ -19,10 +19,10 @@
  #arenaExitConfirm .sound-grid{grid-template-columns:1fr 1fr}
  `;
  document.head.append(css);
- const b=document.createElement('button');b.id='soundOpen';b.textContent='🔊 Testar sons';document.body.append(b);
+ const b=document.createElement('button');b.id='soundOpen';b.textContent='🎵 Música e sons';document.body.append(b);
  const overlay=document.createElement('div');overlay.id='soundDemo';
  overlay.innerHTML=`<div class="sound-box" role="dialog" aria-modal="true" aria-label="Efeitos especiais">
- <h2>🔊 Efeitos da Arena</h2><p>Toque nos efeitos para ouvir como o jogo vai soar.</p>
+ <h2>🎰 Cassino Lounge</h2><p>Ative a trilha de fundo e experimente os efeitos. A música fica mais baixa que os sons das cartas.</p><button id="fxActivate" class="sound-close" style="width:100%;margin:8px 0">▶ Ativar áudio e tocar música</button><label><input id="fxMusic" type="checkbox"> Música ambiente</label><label>Volume da música <input id="fxMusicVolume" type="range" min="0" max="0.6" step="0.025"></label><p id="fxStatus" style="font-size:13px">Toque em Ativar áudio para iniciar.</p>
  <div class="sound-grid">
  <button data-fx="shuffle">🃏 Embaralhar</button><button data-fx="deal">🎴 Distribuir</button>
  <button data-fx="card">♠ Jogar carta</button><button data-fx="turn">⏰ Sua vez</button>
@@ -43,12 +43,12 @@
  document.body.append(confirm);
  function open(){
   const a=window.ArenaSound;if(!a)return;
-  a.audio();document.querySelector('#fxEnabled').checked=a.settings.effects;
+  a.audio();document.querySelector('#fxMusic').checked=a.settings.music;document.querySelector('#fxMusicVolume').value=a.settings.musicVolume;document.querySelector('#fxEnabled').checked=a.settings.effects;
   document.querySelector('#fxVoice').checked=a.settings.voice;
   document.querySelector('#fxVolume').value=a.settings.volume;
   overlay.classList.add('open');
  }
- b.onclick=open;
+ b.onclick=open;document.querySelector('#fxActivate').onclick=async()=>{const a=window.ArenaSound;if(!a)return;const c=a.audio();if(c&&c.state==='suspended')await c.resume();a.setMusic(true);a.startMusic();a.play('deal');document.querySelector('#fxMusic').checked=true;document.querySelector('#fxStatus').textContent=c?.state==='running'?'Áudio ativado! Música tocando.':'Áudio bloqueado pelo navegador. Verifique o volume de mídia do celular.'};document.querySelector('#fxMusic').onchange=e=>window.ArenaSound?.setMusic(e.target.checked);document.querySelector('#fxMusicVolume').oninput=e=>window.ArenaSound?.setMusicVolume(e.target.value);
  document.querySelector('#fxClose').onclick=()=>overlay.classList.remove('open');
  overlay.querySelectorAll('[data-fx]').forEach(btn=>btn.onclick=()=>window.ArenaSound?.play(btn.dataset.fx));
  document.querySelector('#fxEnabled').onchange=e=>window.ArenaSound?.setEffects(e.target.checked);

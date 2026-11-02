@@ -1,6 +1,16 @@
-PACOTE 05 - MELHORIA VISUAL DO TRUCO
-Substitua estes 5 arquivos no GitHub (raiz do repositório): index.html, style.css, app.js, truco.js e sw.js.
-Não precisa executar SQL neste pacote. Não altere online.js.
-Depois abra a Arena, atualize a página e teste com os dois jogadores.
-Melhorias: placar separado Você x Adversário, indicador de turno, cartas jogadas na mesa, número da mão e rodada, visual escuro restaurado e atualização de cache.
-Observação: as regras ainda são simplificadas, sem pedidos de Truco/manilhas.
+ARENA DAS CARTAS — PACOTE 09 — MUSICA DE CASSINO + EFEITOS
+
+No GitHub, SUBSTITUA index.html, app.js, sound.js, effects-ui.js e sw.js.
+Os outros arquivos do Pacote 07 continuam iguais.
+Nao precisa executar SQL.
+
+Abra o aplicativo e toque em "Musica e sons" -> "Ativar audio e tocar musica".
+A musica lounge instrumental e ORIGINAL, gerada no navegador, sem baixar MP3.
+Use os controles para regular musica e efeitos separadamente.
+
+IMPORTANTE: o navegador exige toque do usuario para liberar som.
+Se nao ouvir: aumente o volume de MIDIA do celular, tire do silencioso
+e confira se o site nao esta com som bloqueado.
+
+Este pacote NAO implementa as regras de Truco da Copag, os botoes
+Truco/Correr ou o placar das vazas; isso requer atualizacao do motor SQL.
