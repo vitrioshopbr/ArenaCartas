@@ -41,7 +41,7 @@ $('#games').onclick = event => {
   if ($('#arenaOnlinePanel')) {
     $('#arenaFilter').value = filtroJogo;
     renderizarMesas();
-    $('#arenaOnlinePanel').scrollIntoView({behavior:'smooth',block:'start'});
+    window.ArenaNav?.go('lobby');
   }
 };
 
@@ -195,6 +195,7 @@ async function cadastrar() {
     mensagem('Criando cadastro...');
     await online.cadastrar(email,senha);
     mensagem('Cadastro solicitado. Confirme o e-mail, se necessário.');
+    window.ArenaNav?.go('login');
   } catch(error) { mensagem('Erro: '+error.message); }
 }
 async function mostrarConta(user) {
@@ -216,6 +217,7 @@ async function fazerLogin() {
     mensagem('Bem-vindo à Arena!');
     await carregarMesas();
     iniciarAtualizacao();
+    window.ArenaNav?.go('lobby');
   } catch(error) { mensagem('Erro: '+error.message); }
 }
 function fazerLogout() {
@@ -227,6 +229,7 @@ function fazerLogout() {
   atualizarSalaEspera();
   $('#arenaRooms').textContent='Entre na sua conta para ver as mesas.';
   mensagem('Você saiu da conta.');
+  window.ArenaNav?.go('home');
 }
 function iniciarAtualizacao() {
   pararAtualizacao();
@@ -249,6 +252,7 @@ async function carregarMesas(silencioso=false) {
     if (!mesaSelecionada&&salvas.length) mesaSelecionada=salvas[0].id;
     renderizarMesas();
     atualizarSalaEspera();
+    if (window.ArenaNav?.current()==='lobby' && mesaSelecionada && mesasAtuais.some(m=>m.id===mesaSelecionada&&m.status==='playing')) window.ArenaNav.go('game');
   } catch(error) {
     if(!silencioso) $('#arenaRooms').textContent='Erro ao carregar: '+error.message;
   } finally { atualizando=false; }
@@ -279,7 +283,7 @@ function renderizarMesas() {
       ?botao('Abrir sala de espera',()=>{
         mesaSelecionada=mesa.id;
         atualizarSalaEspera();
-        $('#arenaWaiting').scrollIntoView({behavior:'smooth',block:'nearest'});
+        window.ArenaNav?.go(mesa.status==='playing'?'game':'lobby');
       })
       :botao(mesa.status==='ready'?'Mesa completa':'Entrar nesta mesa',
         ()=>entrarEmMesa(mesa),
@@ -322,7 +326,7 @@ async function entradaRapida(capacidade) {
     mesaSelecionada=resultado.room_id;
     mensagem('Você entrou na mesa '+resultado.room_code+'!');
     await carregarMesas();
-    $('#arenaWaiting').scrollIntoView({behavior:'smooth',block:'nearest'});
+    window.ArenaNav?.go('lobby');
   } catch(error) { mensagem('Erro: '+error.message); }
   finally { botoes.forEach(b=>b.disabled=false); }
 }
@@ -333,7 +337,7 @@ async function entrarEmMesa(mesa) {
     mesaSelecionada=mesa.id;
     mensagem('Você entrou na mesa '+mesa.room_code+'!');
     await carregarMesas();
-    $('#arenaWaiting').scrollIntoView({behavior:'smooth',block:'nearest'});
+    window.ArenaNav?.go('lobby');
   } catch(error) { mensagem('Erro: '+error.message); }
 }
 async function sairDaMesa() {
@@ -347,6 +351,7 @@ async function sairDaMesa() {
     mesaSelecionada=null;
     mensagem('Você saiu da mesa.');
     await carregarMesas();
+    window.ArenaNav?.go('lobby');
   } catch(error) { mensagem('Erro: '+error.message); }
   finally {botaoSair.disabled=false;}
 }
