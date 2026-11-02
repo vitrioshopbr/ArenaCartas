@@ -4,26 +4,21 @@
  const KEY='sb_publishable_rS9ZWWdxEN9bOKHiVjnryg_835_hS6a';
  const el=document.createElement('section');
  el.className='panel';el.id='trucoGame';
- el.innerHTML=`<h2>🃏 Truco 1×1 — Partida</h2>
+ el.innerHTML=`<h2>🃏 Mesa de Truco Online</h2>
  <p id="tgMessage">Entre em uma mesa 1×1 completa para jogar.</p>
  <div id="tgPanel" hidden>
  <h3 id="tgRoom"></h3>
- <p id="tgScore"></p>
- <p id="tgTurn"></p>
+ <div id="tgScore" class="tg-score"></div><p id="tgMeta" class="tg-trick"></p>
+ <p><span id="tgTurn" class="tg-pill"></span></p>
  <div id="tgBoard" class="tg-board"></div>
- <h3>Suas cartas</h3><div id="tgHand" class="tg-hand"></div>
- <p id="tgNotice"></p>
+ <h3>🖐️ Suas cartas — toque para jogar</h3><div id="tgHand" class="tg-hand"></div>
+ <p id="tgNotice" class="tg-alert"></p>
  </div>
  <button id="tgRefresh">Atualizar partida</button>`;
  const anchor=document.querySelector('#arenaOnlinePanel');
  if(anchor) anchor.after(el);else document.querySelector('main')?.append(el);
  const css=document.createElement('style');
- css.textContent=`
- #trucoGame{margin-top:16px}.tg-hand{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
- .tg-card{min-width:66px;min-height:102px;border-radius:10px;background:#fff;color:#102b26;border:2px solid #d8c99e;font-weight:900;font-size:25px;box-shadow:0 4px 14px #0005}
- .tg-card.red{color:#b62136}.tg-card:disabled{opacity:.65}
- .tg-board{min-height:95px;background:linear-gradient(145deg,#174e37,#0c2c25);border:2px solid #53795c;border-radius:50%;padding:20px;text-align:center;margin:14px 0}
- #tgMessage,#tgNotice{line-height:1.5}`;
+ css.textContent='';
  document.head.append(css);
  const $=s=>document.querySelector(s);
  let activeRoom=null, loading=false, lastError='';
@@ -52,9 +47,12 @@
  function show(data,m){
   $('#tgPanel').hidden=false;
   $('#tgRoom').textContent='Mesa '+m.room_code;
-  $('#tgScore').textContent='Placar: '+data.scores.join(' × ')+' · Mão '+data.hand_number+' · Vaza '+(data.trick_number+1);
-  $('#tgTurn').textContent=data.finished?'🏆 Partida encerrada':data.your_turn?'🟢 Sua vez de jogar':'⏳ Vez do adversário';
-  $('#tgBoard').textContent=(data.table_cards||[]).map(x=>(x.player===data.seat?'Você':'Adversário')+': '+cardLabel(x.card)).join('   |   ')||'Mesa livre';
+  $('#tgScore').innerHTML='<div><small>VOCÊ</small><b>'+data.scores[data.seat]+'</b></div><span class="tg-vs">×</span><div><small>ADVERSÁRIO</small><b>'+data.scores[1-data.seat]+'</b></div>';
+  $('#tgMeta').textContent='🃏 Mão '+data.hand_number+'  ·  Rodada '+Math.min(3,data.trick_number+1)+' de 3  ·  Vence quem chegar a 12 pontos';
+  $('#tgTurn').textContent=data.finished?'🏆 Partida encerrada':data.your_turn?'🟢 SUA VEZ — escolha uma carta':'⏳ Aguarde o adversário';$('#tgTurn').className='tg-pill'+(data.your_turn?'':' wait');
+  const board=$('#tgBoard');board.replaceChildren();
+  if(!(data.table_cards||[]).length){board.textContent='🂠 Aguardando a primeira carta desta rodada';}
+  else {for(const x of data.table_cards){const slot=document.createElement('div');slot.className='tg-play';const name=document.createElement('strong');name.textContent=x.player===data.seat?'VOCÊ':'ADVERSÁRIO';const card=document.createElement('div');card.className='tg-card'+(isRed(x.card)?' red':'');card.textContent=cardLabel(x.card);slot.append(name,card);board.append(slot);}}
   const hand=$('#tgHand');hand.replaceChildren();
   for(const c of data.hand||[]){
    const b=document.createElement('button');b.className='tg-card'+(isRed(c)?' red':'');

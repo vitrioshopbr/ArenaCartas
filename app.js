@@ -376,7 +376,7 @@ if('serviceWorker' in navigator) {
 // Pacote 04: motor de Truco 1x1, carregado separadamente.
 (function(){
   const script=document.createElement('script');
-  script.src='./truco.js?v=4';
+  script.src='./truco.js?v=5';
   script.defer=true;
   document.body.appendChild(script);
 })();
