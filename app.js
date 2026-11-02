@@ -13,6 +13,7 @@ const games = [
 
 const $ = s => document.querySelector(s);
 const dialog = $('#dialog');
+const online = window.ArenaOnline;
 
 const audio = {
   enabled: localStorage.getItem('arena_audio') !== 'off',
@@ -29,82 +30,176 @@ function show(title, description, controls = '') {
 
 $('#close').onclick = () => dialog.close();
 
-const online = window.ArenaOnline;
+$('#games').innerHTML = games.map(([name,sub,suit]) => `
+  <button class="game" data-game="${name}">
+    <span class="suit">${suit}</span>
+    <b>${name}</b>
+    <small>${sub}</small>
+    <span class="tag">PREPARANDO MOTOR DE JOGO</span>
+  </button>
+`).join('');
 
-function aviso(texto) {
-  const el = $('#arenaMessage');
-  if (el) el.textContent = texto;
+$('#games').onclick = e => {
+  const b = e.target.closest('[data-game]');
+  if (!b) return;
+
+  show(
+    b.dataset.game,
+    'O motor completo desta modalidade ainda está em desenvolvimento.'
+  );
+};
+
+$('#settings').onclick = () => {
+  show('Áudio e experiência',
+    'Preferências de áudio. Os efeitos premium serão adicionados posteriormente.',
+    `
+    <label><input id="audioEnabled" type="checkbox"
+      ${audio.enabled ? 'checked' : ''}> Ativar áudio</label>
+    <label>Volume
+      <input id="audioVolume" type="range" min="0"
+        max="1" step="0.05" value="${audio.volume}">
+    </label>
+    <label>Estilo
+      <select id="audioMode">
+        <option value="realista">Realista</option>
+        <option value="cinematico">Cinematográfico</option>
+      </select>
+    </label>
+    <button id="saveAudio">Salvar</button>`
+  );
+
+  $('#audioMode').value = audio.mode;
+
+  $('#saveAudio').onclick = () => {
+    audio.enabled = $('#audioEnabled').checked;
+    audio.volume = Number($('#audioVolume').value);
+    audio.mode = $('#audioMode').value;
+
+    localStorage.setItem(
+      'arena_audio', audio.enabled ? 'on' : 'off'
+    );
+    localStorage.setItem(
+      'arena_volume', String(audio.volume)
+    );
+    localStorage.setItem('arena_mode', audio.mode);
+    dialog.close();
+  };
+};
+
+const suits = ['♠','♥','♦','♣'];
+const ranks = [
+  'A','2','3','4','5','6','7',
+  '8','9','10','J','Q','K'
+];
+
+let deck = [];
+
+function shuffle() {
+  deck = suits.flatMap(s =>
+    ranks.map(r => ({s,r}))
+  );
+
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i],deck[j]] = [deck[j],deck[i]];
+  }
+
+  $('#drawn').textContent = '🂠';
+  $('#remaining').textContent = '52 cartas restantes';
 }
 
-function erroMensagem(erro) {
-  return erro?.message || String(erro);
+$('#test').onclick = () => {
+  $('#deck').hidden = false;
+  shuffle();
+  $('#deck').scrollIntoView({
+    behavior: 'smooth',
+    block: 'nearest'
+  });
+};
+
+$('#draw').onclick = () => {
+  if (!deck.length) {
+    $('#remaining').textContent = 'Baralho esgotado.';
+    return;
+  }
+
+  const c = deck.pop();
+  $('#drawn').textContent = c.r + c.s;
+  $('#drawn').style.color =
+    ['♥','♦'].includes(c.s) ? '#b21f2d' : '#142321';
+
+  $('#remaining').textContent =
+    deck.length + ' cartas restantes';
+};
+
+$('#reset').onclick = shuffle;
+
+function message(text) {
+  $('#arenaMessage').textContent = text;
 }
 
-function adicionarPainelOnline() {
+function setLogged(user) {
+  $('#arenaLogin').hidden = !!user;
+  $('#arenaLogged').hidden = !user;
+
+  $('#arenaUser').textContent = user
+    ? 'Conectado: ' + user.email
+    : '';
+}
+
+function makeOnlinePanel() {
   const section = document.createElement('section');
   section.className = 'panel';
   section.id = 'arenaOnlinePanel';
 
   section.innerHTML = `
     <h2>🌐 Arena Online</h2>
-    <p id="arenaMessage">
-      Cadastro, login e mesas de teste.
-      Sem apostas reais.
-    </p>
+    <p id="arenaMessage">Entre para criar mesas.</p>
 
     <div id="arenaLogin">
-      <h3>Entrar ou cadastrar</h3>
-      <input id="arenaEmail"
-        type="email"
-        placeholder="Seu e-mail"
-        autocomplete="email">
-
-      <input id="arenaPassword"
-        type="password"
-        placeholder="Sua senha"
-        autocomplete="current-password">
-
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-        <button id="arenaEntrar">Entrar</button>
-        <button id="arenaCadastrar">Cadastrar</button>
-      </div>
+      <h3>Cadastro e login</h3>
+      <input id="arenaEmail" type="email"
+        placeholder="Seu e-mail" autocomplete="email">
+      <input id="arenaPassword" type="password"
+        placeholder="Sua senha" autocomplete="current-password">
+      <button id="arenaEntrar">Entrar</button>
+      <button id="arenaCadastrar">Cadastrar</button>
     </div>
 
     <div id="arenaLogged" hidden>
       <p id="arenaUser"></p>
       <button id="arenaSair">Sair</button>
 
-      <h3>Criar mesa de teste</h3>
-
+      <h3>Nova mesa</h3>
+      <label>Escolha o jogo</label>
       <select id="arenaGame">
         ${games.map(g =>
           `<option value="${g[0]}">${g[0]}</option>`
         ).join('')}
       </select>
 
-      <input id="arenaRoomName"
-        maxlength="60"
-        placeholder="Nome da mesa">
-
+      <label>Quantidade de jogadores</label>
       <select id="arenaCapacity">
         <option value="2">2 jogadores</option>
         <option value="4" selected>4 jogadores</option>
         <option value="6">6 jogadores</option>
       </select>
 
-      <button id="arenaCreate">Criar mesa</button>
+      <p>O número da mesa será gerado automaticamente.</p>
+      <button class="primary" id="arenaCreate">
+        Criar mesa
+      </button>
     </div>
 
     <h3>Mesas disponíveis</h3>
     <button id="arenaRefresh">Atualizar mesas</button>
-    <div id="arenaRooms" style="margin-top:12px"></div>
+    <div id="arenaRooms"></div>
   `;
 
-  const footer = document.querySelector('footer');
-  footer.parentNode.insertBefore(section, footer);
+  document.querySelector('footer').before(section);
 
   section.querySelectorAll('input,select').forEach(el => {
-    el.style.cssText += `
+    el.style.cssText = `
       display:block;
       width:100%;
       box-sizing:border-box;
@@ -134,7 +229,7 @@ function credenciais() {
   }
 
   if (senha.length < 6) {
-    throw new Error('A senha deve ter pelo menos 6 caracteres.');
+    throw new Error('Senha mínima: 6 caracteres.');
   }
 
   return {email, senha};
@@ -143,45 +238,31 @@ function credenciais() {
 async function cadastrar() {
   try {
     const {email, senha} = credenciais();
-    aviso('Criando cadastro...');
-
-    const resultado = await online.cadastrar(email, senha);
-
-    if (resultado?.access_token) {
-      aviso('Cadastro realizado. Agora entre com sua conta.');
-    } else {
-      aviso('Cadastro solicitado. Verifique seu e-mail para confirmar a conta, se necessário.');
-    }
-  } catch (erro) {
-    aviso('Erro no cadastro: ' + erroMensagem(erro));
+    message('Cadastrando...');
+    await online.cadastrar(email, senha);
+    message('Cadastro solicitado. Verifique seu e-mail, se necessário.');
+  } catch (e) {
+    message('Erro no cadastro: ' + e.message);
   }
 }
 
 async function entrar() {
   try {
     const {email, senha} = credenciais();
-    aviso('Entrando...');
-
-    const jogador = await online.entrar(email, senha);
-
-    $('#arenaLogin').hidden = true;
-    $('#arenaLogged').hidden = false;
-    $('#arenaUser').textContent =
-      'Conectado: ' + (jogador.email || 'Jogador');
-
-    aviso('Login realizado com sucesso!');
+    message('Entrando...');
+    const user = await online.entrar(email, senha);
+    setLogged(user);
+    message('Login realizado!');
     await listarMesas();
-  } catch (erro) {
-    aviso('Erro no login: ' + erroMensagem(erro));
+  } catch (e) {
+    message('Erro no login: ' + e.message);
   }
 }
 
 function sair() {
   online.sair();
-  $('#arenaLogin').hidden = false;
-  $('#arenaLogged').hidden = true;
-  $('#arenaUser').textContent = '';
-  aviso('Você saiu da conta.');
+  setLogged(null);
+  message('Você saiu da conta.');
 }
 
 async function listarMesas() {
@@ -192,208 +273,91 @@ async function listarMesas() {
     const mesas = await online.listarMesas();
     area.replaceChildren();
 
-    if (!Array.isArray(mesas) || !mesas.length) {
+    if (!mesas.length) {
       area.textContent = 'Nenhuma mesa disponível.';
       return;
     }
 
-    mesas.forEach(mesa => {
+    for (const mesa of mesas) {
       const card = document.createElement('div');
       card.style.cssText = `
-        padding:12px;
+        padding:14px;
+        margin:10px 0;
         border:1px solid #527568;
         border-radius:12px;
-        margin:8px 0;
       `;
 
-      const titulo = document.createElement('strong');
-      titulo.textContent =
-        mesa.name || mesa.game || 'Mesa';
+      const title = document.createElement('h3');
+      title.textContent =
+        (mesa.room_code || 'Mesa sem número') +
+        ' · ' + mesa.game;
 
-      const detalhes = document.createElement('p');
-      detalhes.textContent =
-        (mesa.game || 'Baralho') +
-        ' • Até ' +
-        (mesa.max_players || 4) +
-        ' jogadores';
+      const details = document.createElement('p');
+      details.textContent =
+        'Até ' + mesa.max_players +
+        ' jogadores · ' +
+        (mesa.status === 'waiting'
+          ? 'Aguardando jogadores'
+          : mesa.status);
 
-      const info = document.createElement('small');
-      info.textContent =
-        'Mesa de teste — partida ainda indisponível.';
+      const note = document.createElement('small');
+      note.textContent =
+        'Entrada na partida em desenvolvimento';
 
-      card.append(titulo, detalhes, info);
-      area.appendChild(card);
-    });
-
-  } catch (erro) {
-    area.textContent =
-      'Não foi possível carregar as mesas: ' +
-      erroMensagem(erro);
+      card.append(title, details, note);
+      area.append(card);
+    }
+  } catch (e) {
+    area.textContent = 'Erro: ' + e.message;
   }
 }
 
 async function criarMesa() {
+  const button = $('#arenaCreate');
+
   try {
+    button.disabled = true;
+    message('Criando mesa...');
+
     const jogo = $('#arenaGame').value;
-    const nome = $('#arenaRoomName').value.trim();
     const capacidade = Number($('#arenaCapacity').value);
 
-    if (!nome) {
-      throw new Error('Digite o nome da mesa.');
-    }
+    const mesa = await online.criarMesa(jogo, capacidade);
 
-    aviso('Criando mesa...');
+    message(
+      'Mesa ' + mesa.room_code +
+      ' criada com sucesso!'
+    );
 
-    await online.criarMesa(jogo, nome, capacidade);
-
-    aviso('Mesa de teste criada!');
-    $('#arenaRoomName').value = '';
     await listarMesas();
-
-  } catch (erro) {
-    aviso('Erro ao criar mesa: ' + erroMensagem(erro));
+  } catch (e) {
+    message('Erro ao criar mesa: ' + e.message);
+  } finally {
+    button.disabled = false;
   }
 }
 
-$('#games').innerHTML = games.map(([name,sub,suit]) => `
-  <button class="game"
-    data-game="${name}"
-    data-suit="${suit}">
-    <span class="suit">${suit}</span>
-    <b>${name}</b>
-    <small>${sub}</small>
-    <span class="tag">PREPARANDO MOTOR DE JOGO</span>
-  </button>
-`).join('');
-
-$('#games').addEventListener('click', e => {
-  const b = e.target.closest('[data-game]');
-  if (!b) return;
-
-  show(
-    b.dataset.game,
-    'Esta modalidade está no catálogo. ' +
-    'O motor de regras, os robôs e as partidas ' +
-    'multiplayer ainda serão implementados.'
-  );
-});
-
-$('#settings').onclick = () => {
-  show(
-    'Áudio e experiência',
-    'Os 11 efeitos premium serão adicionados com gravações reais licenciadas.',
-    `
-      <label>
-        <input id="audioEnabled" type="checkbox"
-          ${audio.enabled ? 'checked' : ''}>
-        Ativar áudio
-      </label>
-
-      <label>
-        Volume:
-        <input id="audioVolume" type="range"
-          min="0" max="1" step="0.05"
-          value="${audio.volume}">
-      </label>
-
-      <label>
-        Estilo:
-        <select id="audioMode">
-          <option value="realista">Realista</option>
-          <option value="cinematico">Cinematográfico</option>
-        </select>
-      </label>
-
-      <button id="saveAudio">
-        Salvar preferências
-      </button>
-    `
-  );
-
-  $('#audioMode').value = audio.mode;
-
-  $('#saveAudio').onclick = () => {
-    audio.enabled = $('#audioEnabled').checked;
-    audio.volume = Number($('#audioVolume').value);
-    audio.mode = $('#audioMode').value;
-
-    localStorage.setItem(
-      'arena_audio',
-      audio.enabled ? 'on' : 'off'
-    );
-    localStorage.setItem(
-      'arena_volume',
-      String(audio.volume)
-    );
-    localStorage.setItem(
-      'arena_mode',
-      audio.mode
-    );
-
-    dialog.close();
-  };
-};
-
-const suits = ['♠','♥','♦','♣'];
-const ranks = [
-  'A','2','3','4','5','6','7',
-  '8','9','10','J','Q','K'
-];
-
-let deck = [];
-
-function shuffle() {
-  deck = suits.flatMap(s =>
-    ranks.map(r => ({s,r}))
-  );
-
-  for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [deck[i],deck[j]] = [deck[j],deck[i]];
-  }
-
-  $('#drawn').textContent = '🂠';
-  $('#remaining').textContent =
-    '52 cartas restantes';
-}
-
-$('#test').onclick = () => {
-  $('#deck').hidden = false;
-  shuffle();
-  $('#deck').scrollIntoView({
-    behavior:'smooth',
-    block:'nearest'
-  });
-};
-
-$('#draw').onclick = () => {
-  if (!deck.length) {
-    $('#remaining').textContent =
-      'Baralho esgotado. Inicie outro.';
+async function iniciarOnline() {
+  if (!online) {
+    $('#status').textContent =
+      'Conexão online não carregada.';
     return;
   }
 
-  const c = deck.pop();
+  makeOnlinePanel();
 
-  $('#drawn').textContent = c.r + c.s;
-  $('#drawn').style.color =
-    ['♥','♦'].includes(c.s)
-      ? '#b21f2d'
-      : '#142321';
+  const user = await online.garantirSessao();
+  setLogged(user);
 
-  $('#remaining').textContent =
-    deck.length + ' cartas restantes';
-};
-
-$('#reset').onclick = shuffle;
-
-if (online) {
-  adicionarPainelOnline();
-  listarMesas();
-} else {
-  $('#status').textContent =
-    'Arquivo online.js não carregado. Verifique a conexão.';
+  if (user) {
+    message('Conectado: ' + user.email);
+    await listarMesas();
+  } else {
+    message('Entre ou cadastre-se para jogar online.');
+  }
 }
+
+iniciarOnline();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
