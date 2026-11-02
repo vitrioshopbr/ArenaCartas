@@ -1,0 +1,16 @@
+ARENA DAS CARTAS — PACOTE GRANDE 04
+1) Supabase: abra SQL Editor e execute 01_SUPABASE_TRUCO.sql inteiro.
+2) GitHub: substitua app.js e adicione truco.js na raiz do repositório.
+3) Abra o site e entre com as duas contas na mesma mesa de Truco 1x1.
+4) Mesa cheia: painel de Truco aparece e permite jogar cartas sincronizadas.
+
+Incluído:
+- Mesa completa/pronta sem mensagem incorreta de aguardando
+- Partida 1x1 com três cartas por mão, turnos e pontuação até 12
+- Cartas individuais privadas por jogador
+- Consulta automática a cada 3,5 segundos
+- Validação de jogada e turnos no Supabase
+
+Limitações atuais: motor inicial usa ordem fixa das cartas; ainda faltam manilha/vira,
+pedido de truco, regras oficiais de empate, duplas, bots, reconexão avançada e rematch.
+Não há apostas ou dinheiro real. Mantenha os demais arquivos do GitHub como estão.

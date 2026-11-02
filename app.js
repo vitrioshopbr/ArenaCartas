@@ -244,7 +244,7 @@ async function carregarMesas(silencioso=false) {
   if(!silencioso) $('#arenaRooms').textContent='Carregando mesas...';
   try {
     mesasAtuais=await online.listarMesas();
-    const salvas=mesasAtuais.filter(m=>m.participating&&['waiting','ready'].includes(m.status));
+    const salvas=mesasAtuais.filter(m=>m.participating&&['waiting','ready','playing'].includes(m.status));
     if (mesaSelecionada&&!salvas.some(m=>m.id===mesaSelecionada)) mesaSelecionada=null;
     if (!mesaSelecionada&&salvas.length) mesaSelecionada=salvas[0].id;
     renderizarMesas();
@@ -259,7 +259,7 @@ function renderizarMesas() {
   const lista=mesasAtuais.filter(m=>
     m.game===filtroJogo&&
     m.visibility==='public'&&
-    ['waiting','ready'].includes(m.status)
+    ['waiting','ready','playing'].includes(m.status)
   );
   if(!lista.length) {
     area.append(elemento('p','Nenhuma mesa aguardando. Use Entrada Rápida para abrir uma.'));
@@ -273,7 +273,7 @@ function renderizarMesas() {
     const titulo=elemento('h3',mesa.room_code+' · '+modalidade);
     const ocupacao=elemento('p',
       mesa.total_players+'/'+mesa.max_players+' jogadores · '+
-      (mesa.status==='ready'?'✅ Mesa completa — preparando partida':'⏳ Aguardando jogadores')
+      (mesa.status==='playing'?'🎮 Partida em andamento':mesa.status==='ready'?'✅ Mesa completa — pronta para jogar':'⏳ Aguardando jogadores')
     );
     const acao=mesa.participating
       ?botao('Abrir sala de espera',()=>{
@@ -306,8 +306,10 @@ function atualizarSalaEspera() {
     vagas.append(assento);
   }
   const faltam=Math.max(0,mesa.max_players-mesa.total_players);
-  $('#arenaWaitingText').textContent=mesa.status==='ready'||faltam===0
-    ?'✅ Mesa completa — preparando partida. O motor de Truco ainda está em desenvolvimento.'
+  $('#arenaWaitingText').textContent=mesa.status==='playing'
+    ?'🎮 Partida iniciada. Abra o painel de Truco abaixo.'
+    :mesa.status==='ready'||faltam===0
+    ?'✅ Mesa completa — pronta para jogar.'
     :'Aguardando '+faltam+(faltam===1?' jogador...':' jogadores...');
   $('#arenaBot').disabled=true;
 }
@@ -370,3 +372,11 @@ if('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(()=>{});
   });
 }
+
+// Pacote 04: motor de Truco 1x1, carregado separadamente.
+(function(){
+  const script=document.createElement('script');
+  script.src='./truco.js?v=4';
+  script.defer=true;
+  document.body.appendChild(script);
+})();
