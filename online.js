@@ -15,6 +15,17 @@ const ArenaOnline = (() => {
     session = null;
   }
 
+  function saveSession(data) {
+    session = {
+      ...data,
+      expires_at: Math.floor(Date.now() / 1000) +
+        (data.expires_in || 3600)
+    };
+    localStorage.setItem(
+      'arena_session', JSON.stringify(session)
+    );
+  }
+
   async function request(path, options = {}) {
     const headers = {
       apikey: ARENA_KEY,
@@ -28,8 +39,7 @@ const ArenaOnline = (() => {
     }
 
     const response = await fetch(ARENA_URL + path, {
-      ...options,
-      headers
+      ...options, headers
     });
 
     const raw = await response.text();
@@ -54,20 +64,11 @@ const ArenaOnline = (() => {
     return data;
   }
 
-  function saveSession(data) {
-    session = data;
-    localStorage.setItem(
-      'arena_session',
-      JSON.stringify(data)
-    );
-  }
-
   async function cadastrar(email, senha) {
     return request('/auth/v1/signup', {
       method: 'POST',
       body: JSON.stringify({
-        email,
-        password: senha
+        email, password: senha
       })
     });
   }
@@ -78,36 +79,12 @@ const ArenaOnline = (() => {
       {
         method: 'POST',
         body: JSON.stringify({
-          email,
-          password: senha
+          email, password: senha
         })
       }
     );
-
     saveSession(data);
     return data.user;
-  }
-
-  async function renovarSessao() {
-    if (!session?.refresh_token) return null;
-
-    try {
-      const data = await request(
-        '/auth/v1/token?grant_type=refresh_token',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            refresh_token: session.refresh_token
-          })
-        }
-      );
-
-      saveSession(data);
-      return data.user;
-    } catch {
-      sair();
-      return null;
-    }
   }
 
   async function garantirSessao() {
@@ -120,15 +97,22 @@ const ArenaOnline = (() => {
       return session.user;
     }
 
-    if (
-      !session.expires_at &&
-      session.expires_in &&
-      session.access_token
-    ) {
-      return renovarSessao();
+    try {
+      const data = await request(
+        '/auth/v1/token?grant_type=refresh_token',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            refresh_token: session.refresh_token
+          })
+        }
+      );
+      saveSession(data);
+      return data.user;
+    } catch {
+      sair();
+      return null;
     }
-
-    return renovarSessao();
   }
 
   function jogador() {
@@ -141,21 +125,39 @@ const ArenaOnline = (() => {
   }
 
   async function listarMesas() {
-    await garantirSessao();
+    const user = await garantirSessao();
+    if (!user) throw new Error('Faça login primeiro.');
 
-    return request(
-      '/rest/v1/ac_rooms' +
-      '?select=id,room_code,game,max_players,status,visibility,created_at' +
-      '&order=created_at.desc&limit=50'
-    );
+    const [mesas, participantes] = await Promise.all([
+      request(
+        '/rest/v1/ac_rooms' +
+        '?select=id,room_code,game,max_players,status,visibility,owner_id,created_at' +
+        '&order=created_at.desc&limit=50'
+      ),
+      request(
+        '/rest/v1/ac_room_players' +
+        '?select=room_id,user_id'
+      )
+    ]);
+
+    return mesas.map(mesa => {
+      const pessoas = participantes.filter(
+        p => p.room_id === mesa.id
+      );
+
+      return {
+        ...mesa,
+        total_players: pessoas.length,
+        participating: pessoas.some(
+          p => p.user_id === user.id
+        )
+      };
+    });
   }
 
   async function criarMesa(jogo, capacidade = 4) {
     const user = await garantirSessao();
-
-    if (!user) {
-      throw new Error('Entre na sua conta primeiro.');
-    }
+    if (!user) throw new Error('Entre na sua conta.');
 
     const permitidos = [
       'Truco', 'Cacheta', 'Buraco',
@@ -173,7 +175,7 @@ const ArenaOnline = (() => {
       },
       body: JSON.stringify({
         owner_id: user.id,
-        game: jogo,
+        game: jogo.toLowerCase(),
         visibility: 'public',
         max_players: capacidade,
         status: 'waiting'
@@ -183,13 +185,42 @@ const ArenaOnline = (() => {
     return mesas[0];
   }
 
-  async function testarConexao() {
-    try {
-      await request('/auth/v1/settings');
-      return {ok: true, mensagem: 'Conectado'};
-    } catch (e) {
-      return {ok: false, mensagem: e.message};
-    }
+  async function entrarMesa(roomId) {
+    const user = await garantirSessao();
+    if (!user) throw new Error('Faça login primeiro.');
+
+    return request('/rest/v1/rpc/ac_join_room', {
+      method: 'POST',
+      body: JSON.stringify({
+        p_room_id: roomId
+      })
+    });
+  }
+
+  async function sairMesa(roomId) {
+    const user = await garantirSessao();
+    if (!user) throw new Error('Faça login primeiro.');
+
+    return request('/rest/v1/rpc/ac_leave_room', {
+      method: 'POST',
+      body: JSON.stringify({
+        p_room_id: roomId
+      })
+    });
+  }
+
+  async function buscarPerfil() {
+    const user = await garantirSessao();
+    if (!user) return null;
+
+    const rows = await request(
+      '/rest/v1/ac_profiles' +
+      '?select=id,nickname' +
+      '&id=eq.' + encodeURIComponent(user.id) +
+      '&limit=1'
+    );
+
+    return rows[0] || null;
   }
 
   return {
@@ -200,7 +231,9 @@ const ArenaOnline = (() => {
     garantirSessao,
     listarMesas,
     criarMesa,
-    testarConexao
+    entrarMesa,
+    sairMesa,
+    buscarPerfil
   };
 })();
 
