@@ -349,7 +349,7 @@ async function sairDaMesa() {
     mensagem('Saindo da mesa...');
     await online.sairMesa(id);
     mesaSelecionada=null;
-    mensagem('Você saiu da mesa.');
+    mensagem('Você saiu da mesa.');window.ArenaNav?.go('lobby');
     await carregarMesas();
     window.ArenaNav?.go('lobby');
   } catch(error) { mensagem('Erro: '+error.message); }
