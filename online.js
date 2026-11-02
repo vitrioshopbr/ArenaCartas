@@ -8,9 +8,7 @@ const ArenaOnline = (() => {
   let session = null;
 
   try {
-    session = JSON.parse(
-      localStorage.getItem('arena_session') || 'null'
-    );
+    session = JSON.parse(localStorage.getItem('arena_session') || 'null');
   } catch {
     session = null;
   }
@@ -21,9 +19,7 @@ const ArenaOnline = (() => {
       expires_at: Math.floor(Date.now() / 1000) +
         (data.expires_in || 3600)
     };
-    localStorage.setItem(
-      'arena_session', JSON.stringify(session)
-    );
+    localStorage.setItem('arena_session', JSON.stringify(session));
   }
 
   async function request(path, options = {}) {
@@ -34,12 +30,12 @@ const ArenaOnline = (() => {
     };
 
     if (session?.access_token) {
-      headers.Authorization =
-        'Bearer ' + session.access_token;
+      headers.Authorization = 'Bearer ' + session.access_token;
     }
 
     const response = await fetch(ARENA_URL + path, {
-      ...options, headers
+      ...options,
+      headers
     });
 
     const raw = await response.text();
@@ -67,9 +63,7 @@ const ArenaOnline = (() => {
   async function cadastrar(email, senha) {
     return request('/auth/v1/signup', {
       method: 'POST',
-      body: JSON.stringify({
-        email, password: senha
-      })
+      body: JSON.stringify({ email, password: senha })
     });
   }
 
@@ -78,11 +72,10 @@ const ArenaOnline = (() => {
       '/auth/v1/token?grant_type=password',
       {
         method: 'POST',
-        body: JSON.stringify({
-          email, password: senha
-        })
+        body: JSON.stringify({ email, password: senha })
       }
     );
+
     saveSession(data);
     return data.user;
   }
@@ -107,6 +100,7 @@ const ArenaOnline = (() => {
           })
         }
       );
+
       saveSession(data);
       return data.user;
     } catch {
@@ -124,91 +118,6 @@ const ArenaOnline = (() => {
     localStorage.removeItem('arena_session');
   }
 
-  async function listarMesas() {
-    const user = await garantirSessao();
-    if (!user) throw new Error('Faça login primeiro.');
-
-    const [mesas, participantes] = await Promise.all([
-      request(
-        '/rest/v1/ac_rooms' +
-        '?select=id,room_code,game,max_players,status,visibility,owner_id,created_at' +
-        '&order=created_at.desc&limit=50'
-      ),
-      request(
-        '/rest/v1/ac_room_players' +
-        '?select=room_id,user_id'
-      )
-    ]);
-
-    return mesas.map(mesa => {
-      const pessoas = participantes.filter(
-        p => p.room_id === mesa.id
-      );
-
-      return {
-        ...mesa,
-        total_players: pessoas.length,
-        participating: pessoas.some(
-          p => p.user_id === user.id
-        )
-      };
-    });
-  }
-
-  async function criarMesa(jogo, capacidade = 4) {
-    const user = await garantirSessao();
-    if (!user) throw new Error('Entre na sua conta.');
-
-    const permitidos = [
-      'Truco', 'Cacheta', 'Buraco',
-      'Tranca', 'Poker', 'Pife', 'Canastra'
-    ];
-
-    if (!permitidos.includes(jogo)) {
-      throw new Error('Jogo inválido.');
-    }
-
-    const mesas = await request('/rest/v1/ac_rooms', {
-      method: 'POST',
-      headers: {
-        Prefer: 'return=representation'
-      },
-      body: JSON.stringify({
-        owner_id: user.id,
-        game: jogo.toLowerCase(),
-        visibility: 'public',
-        max_players: capacidade,
-        status: 'waiting'
-      })
-    });
-
-    return mesas[0];
-  }
-
-  async function entrarMesa(roomId) {
-    const user = await garantirSessao();
-    if (!user) throw new Error('Faça login primeiro.');
-
-    return request('/rest/v1/rpc/ac_join_room', {
-      method: 'POST',
-      body: JSON.stringify({
-        p_room_id: roomId
-      })
-    });
-  }
-
-  async function sairMesa(roomId) {
-    const user = await garantirSessao();
-    if (!user) throw new Error('Faça login primeiro.');
-
-    return request('/rest/v1/rpc/ac_leave_room', {
-      method: 'POST',
-      body: JSON.stringify({
-        p_room_id: roomId
-      })
-    });
-  }
-
   async function buscarPerfil() {
     const user = await garantirSessao();
     if (!user) return null;
@@ -223,17 +132,93 @@ const ArenaOnline = (() => {
     return rows[0] || null;
   }
 
+  async function listarMesas() {
+    const user = await garantirSessao();
+
+    if (!user) {
+      throw new Error('Entre na sua conta primeiro.');
+    }
+
+    const [mesas, contagens] = await Promise.all([
+      request(
+        '/rest/v1/ac_rooms' +
+        '?select=id,room_code,game,max_players,status,visibility,owner_id,created_at' +
+        '&order=created_at.desc&limit=100'
+      ),
+      request('/rest/v1/rpc/ac_room_counts', {
+        method: 'POST',
+        body: '{}'
+      })
+    ]);
+
+    const mapa = new Map(
+      contagens.map(c => [c.room_id, c])
+    );
+
+    return mesas.map(mesa => {
+      const contagem = mapa.get(mesa.id);
+
+      return {
+        ...mesa,
+        total_players: Number(contagem?.total_players || 0),
+        participating: !!contagem?.participating
+      };
+    });
+  }
+
+  async function entradaRapida(jogo, capacidade) {
+    const user = await garantirSessao();
+
+    if (!user) {
+      throw new Error('Faça login primeiro.');
+    }
+
+    return request('/rest/v1/rpc/ac_quick_join', {
+      method: 'POST',
+      body: JSON.stringify({
+        p_game: jogo.toLowerCase(),
+        p_max_players: capacidade
+      })
+    });
+  }
+
+  async function entrarMesa(roomId) {
+    const user = await garantirSessao();
+
+    if (!user) {
+      throw new Error('Faça login primeiro.');
+    }
+
+    return request('/rest/v1/rpc/ac_join_room', {
+      method: 'POST',
+      body: JSON.stringify({ p_room_id: roomId })
+    });
+  }
+
+  async function sairMesa(roomId) {
+    const user = await garantirSessao();
+
+    if (!user) {
+      throw new Error('Faça login primeiro.');
+    }
+
+    return request('/rest/v1/rpc/ac_leave_room', {
+      method: 'POST',
+      body: JSON.stringify({ p_room_id: roomId })
+    });
+  }
+
   return {
     cadastrar,
     entrar,
     sair,
     jogador,
     garantirSessao,
+    buscarPerfil,
     listarMesas,
-    criarMesa,
+    entradaRapida,
     entrarMesa,
-    sairMesa,
-    buscarPerfil
+    sairMesa
   };
 })();
 
